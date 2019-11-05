@@ -1,0 +1,43 @@
+---
+- name: install apache by apt
+  apt:
+    name:
+      - apache2
+      - apache2-utils
+
+- set_fact:
+    apache_2_4_path_conf: /etc/apache2/httpd.conf
+
+- name: set running user and group
+  replace:
+    path: /etc/apache2/envvars
+    regexp: '{{ item.regexp }}'
+    replace: '{{ item.replace }}'
+  with_items:
+    - regexp: ^export\sAPACHE_RUN_USER=.*$
+      replace: export APACHE_RUN_USER={{ apache_2_4_running_user }}
+    - regexp: ^export\sAPACHE_RUN_GROUP=.*$
+      replace: export APACHE_RUN_GROUP={{ apache_2_4_running_group }}
+
+- name: add deploy user into apache group
+  user:
+    groups: '{{ apache_2_4_running_group}}'
+    name: '{{ roles_common_deploy_user }}'
+
+- name: set umask to add writable permission for apache group users
+  lineinfile:
+    path: /etc/apache2/envvars
+    line: umask 002
+
+- name: enable service on boot (excluding case when docker container)
+  service:
+    name: apache2
+    enabled: "{{ 'no' if 'container' in group_names else 'yes' }}"
+
+# TODO ensure (default seems to be daily on Ubuntu)
+#- name: set logrotate as daily
+#  blockinfile:
+#    path: /etc/logrotate.d/apache2
+#    insertafter: ^\s*endscript$
+#    block: |
+#      daily
